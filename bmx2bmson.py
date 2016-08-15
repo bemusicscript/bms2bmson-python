@@ -74,7 +74,7 @@ class bms2bmson:
 		bmson["sound_channels"] = []
 
 		wavslen = len(self.wavHeader)
-		for i in range(wavslen):
+		for i in xrange(wavslen):
 			cnotes[self.wavHeader[i]["ID"]] = []
 				
 		for wn in self.notes:
@@ -95,7 +95,7 @@ class bms2bmson:
 
 			cnotes[wn["id"]].append(n)
 		
-		for i in range(wavslen):
+		for i in xrange(wavslen):
 
 			tempdict = {}
 			tempdict["name"] = self.wavHeader[i]["name"]
@@ -189,8 +189,8 @@ class bms2bmson:
 
 	def ReadBMSLines(self, bmsdata):
 
-		self.lineh	= { i : 960 for i in range(1000) }
-		self.isln 	= { i : False for i in range(4096) }
+		self.lineh	= { i : 960 for i in xrange(1000) }
+		self.isln 	= { i : False for i in xrange(4096) }
 		self.lines = []
 		self.NotePre = []
 		self.linemax = 0
@@ -219,7 +219,7 @@ class bms2bmson:
 			else:
 				paramlen = len(parameter) / 2
 
-				for j in range(paramlen):
+				for j in xrange(paramlen):
 
 					paramsub = parameter[j*2:j*2+2]
 					nn = self.ToXX(paramsub, 16) if ch == 3 else self.ToXX(paramsub, 36)
@@ -236,12 +236,12 @@ class bms2bmson:
 											  "mc" : j })
 
 		y = 0
-		for i in range(self.linemax + 1):
+		for i in xrange(self.linemax + 1):
 
 			self.lines.append({"y" : y})
 			y += self.lineh[i]
 
-		for i in range(len(self.NotePre)):
+		for i in xrange(len(self.NotePre)):
 
 			ms = self.NotePre[i]["ms"]
 			seq_y = (self.lines[ms+1]["y"] - self.lines[ms]["y"]) * self.NotePre[i]["mc"] / self.NotePre[i]["mm"]
@@ -253,7 +253,7 @@ class bms2bmson:
 		t1 = 0
 		t2 = 0
 
-		for i in range(len(self.NotePre)):
+		for i in xrange(len(self.NotePre)):
 			
 			ch = self.NotePre[i]['x']
 			if (ch > 10 and ch < 50) and self.isln[self.NotePre[i]['n']]:
@@ -315,7 +315,7 @@ class bms2bmson:
 		self.bpmnotes = []
 		self.stopnotes = []
 
-		for i in range(len(self.NotePre)):
+		for i in xrange(len(self.NotePre)):
 
 			np = self.NotePre[i]
 
