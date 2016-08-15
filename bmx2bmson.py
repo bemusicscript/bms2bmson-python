@@ -376,24 +376,18 @@ if __name__ == "__main__":
 	uinput = sys.argv[1]
 	bms = bms2bmson()
 
-	formats = [".bms", ".bme", ".bml", ".pms"]
+	formats = (".bms", ".bme", ".bml", ".pms")
 
 	if os.path.isdir(uinput):
-	
 		for root, dirs, files in os.walk(uinput):
-			
-			for file in files:
-				
-				if file.endswith(tuple(formats)):
-					
-						targetbms = os.path.join(root, file)
-						try:
-							#print targetbms
-							meta = bms.Convert(targetbms)
+			for file in filter(lambda x: x.endswith(formats), files):
+				targetbms = os.path.join(root, file)
+				try:
+					#print targetbms
+					meta = bms.Convert(targetbms)
 							
-						#print meta
-						except:
-							pass
+					#print meta
+				except:
+					pass
 	else:
-		
 		meta = bms.Convert(uinput)
