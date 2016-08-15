@@ -119,20 +119,20 @@ class bms2bmson:
 		return -> self.BMSInfo
 		"""
 
-		self.BMSInfo = { "title" 			: "",
-						 "subtitle" 		: "",
-					     "artist" 			: "",
-					     "subartists" 		: "",
-					     "genre" 			: "",
+		self.BMSInfo = { "title" 			: None,
+						 "subtitle" 		: None,
+					     "artist" 			: None,
+					     "subartists" 		: None,
+					     "genre" 			: None,
 					     "mode_hint" 		: "beat-7k",
-					     "chart_name" 		: "",
+					     "chart_name" 		: None,
 					     "level" 			: 0,
 					     "init_bpm" 		: 0.0,
 					     "total" 			: 100.0,
-					     "back_image" 		: "",
-					     "eyecatch_image"	: "",
-					     "banner_image" 	: "",
-					     "preview_music" 	: "",
+					     "back_image" 		: None,
+					     "eyecatch_image"	: None,
+					     "banner_image" 	: None,
+					     "preview_music" 	: None,
 					     "resolation" 		: 240 }
 
 		self.wavHeader = []
