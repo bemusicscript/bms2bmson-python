@@ -377,7 +377,8 @@ if __name__ == "__main__":
 	bms = bms2bmson()
 
 	formats = (".bms", ".bme", ".bml", ".pms")
-
+	
+	"""
 	if os.path.isdir(uinput):
 		for root, dirs, files in os.walk(uinput):
 			for file in filter(lambda x: x.endswith(formats), files):
@@ -391,3 +392,7 @@ if __name__ == "__main__":
 					pass
 	else:
 		meta = bms.Convert(uinput)
+	"""
+	
+	bms.Convert(uinput)
+	
