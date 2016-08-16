@@ -7,7 +7,7 @@ import json
 import traceback
 
 __author__ = "xert*"
-__version__ = 0.1
+__version__ = 0.2
 __bmsonversion__ = "1.0.0"
 
 
@@ -299,12 +299,14 @@ class bms2bmson:
 						self.NotePre[i]['x'] = 0
 						break
 
+		
+		modified = []
 		for idx, r in enumerate(self.NotePre):
-			if r['x'] == 0:
-				del self.NotePre[idx]
-
+			if r['x'] != 0:
+				modified.append(self.NotePre[idx])
+		self.NotePre = modified
+		
 		self.SetNotes()
-
 
 	def SetNotes(self):
 
