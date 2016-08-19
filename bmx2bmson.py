@@ -4,16 +4,18 @@ import os
 import re
 import sys
 import json
+import operator
 import traceback
 
 __author__ = "xert*"
-__version__ = 0.2
+__version__ = "0.3"
 __bmsonversion__ = "1.0.0"
 
 
 class bms2bmson:
 
-	def ToXX(self, str, shift):
+	@staticmethod
+	def ToBaseX(str, shift):
 
 		a = ord(str[0])
 		b = ord(str[1])
@@ -24,6 +26,18 @@ class bms2bmson:
 		c += b - ord('A') + 10 if (b >= ord('A') and b <= ord('Z')) else b - ord('0')
 
 		return c
+
+	@staticmethod
+	def SaveBmson(jsondata):
+
+		try:
+			with open("result.bmson", "wb") as jf:
+				jf.write(jsondata)
+			return True
+
+		except Exception:
+			traceback.print_exc()
+			return False
 
 	def LoadBMS(self, bmsfile):
 
@@ -44,17 +58,6 @@ class bms2bmson:
 		
 		print "[!] is not bms type file"
 		return None
-
-	def SaveBmson(self, jsondata):
-
-		try:
-			with open("result.bmson", "wb") as jf:
-				jf.write(jsondata)
-			return True
-
-		except Exception:
-			traceback.print_exc()
-			return False
 
 	def ExportToJson(self):
 
@@ -81,7 +84,6 @@ class bms2bmson:
 
 			if wn["id"] not in cnotes:
 				continue
-			
 			n = {}
 			n["c"] = wn["channel"] > 30
 			
@@ -174,16 +176,16 @@ class bms2bmson:
 				for v, parameter in value:
 					
 					if tag is "WAV":
-						self.wavHeader.append({ "ID" : self.ToXX(v, 36), "name" : parameter })
+						self.wavHeader.append({ "ID" : self.ToBaseX(v, 36), "name" : parameter })
 
 					elif tag is "BMP":
-						self.bgaHeader.append({ "ID" : self.ToXX(v, 36), "name" : parameter })
+						self.bgaHeader.append({ "ID" : self.ToBaseX(v, 36), "name" : parameter })
 
 					elif tag is "BPM":
-						self.bpmnum.append({ self.ToXX(v, 36) : float(parameter) })
+						self.bpmnum.append({ self.ToBaseX(v, 36) : float(parameter) })
 
 					elif tag is "STOP":
-						self.stopnum.append({ self.ToXX(v, 36) : int(parameter) })
+						self.stopnum.append({ self.ToBaseX(v, 36) : int(parameter) })
 
 		return self.BMSInfo
 
@@ -192,15 +194,13 @@ class bms2bmson:
 		self.lineh	= { i : 960 for i in xrange(1000) }
 		self.isln 	= { i : False for i in xrange(4096) }
 		self.lines = []
-		self.NotePre = []
+		self.NotePre = {}
 		self.linemax = 0
-
-		self.tempcount = 0
+		GlobalCounter = 0
 
 		bmslines = re.findall(r"#([0-9]{3})([0-9]{2}):(.+)\r", bmsdata)
 
 		for measure, channel, parameter in bmslines:
-			
 			ch = int(channel)
 			ms = int(measure)
 
@@ -218,94 +218,101 @@ class bms2bmson:
 
 			else:
 				paramlen = len(parameter) / 2
-
 				for j in xrange(paramlen):
-
 					paramsub = parameter[j*2:j*2+2]
-					nn = self.ToXX(paramsub, 16) if ch == 3 else self.ToXX(paramsub, 36)
+					nn = self.ToBaseX(paramsub, 16) if ch == 3 else self.ToBaseX(paramsub, 36)
 
 					if nn is not 0:
-
-						self.tempcount = self.tempcount + 1
 						self.linemax = max([self.linemax, ms + 1])
-						self.NotePre.append({ "x" : ch, 
-											  "y" : 0, 
-											  "n" : nn, 
-											  "ms" : ms, 
-											  "mm" : paramlen, 
-											  "mc" : j })
+						self.NotePre[GlobalCounter] = {"x" : ch, "y" : 0, "n" : nn, "ms" : ms, "mm" : paramlen, "mc" : j}
+						GlobalCounter = GlobalCounter + 1
 
 		y = 0
 		for i in xrange(self.linemax + 1):
-
 			self.lines.append({"y" : y})
 			y += self.lineh[i]
 
 		for i in xrange(len(self.NotePre)):
-
 			ms = self.NotePre[i]["ms"]
 			seq_y = (self.lines[ms+1]["y"] - self.lines[ms]["y"]) * self.NotePre[i]["mc"] / self.NotePre[i]["mm"]
-			
 			self.NotePre[i]["y"] = self.lines[ms]["y"] + seq_y
 
-		self.NotePre = sorted(self.NotePre, key=lambda k: k['y'])
+		self.NotePre = sorted(self.NotePre.items(), key=lambda x: x[1]['y'])
+		#self.NotePre = sorted(self.NotePre, key=lambda k: k['y'])
 
-		t1 = 0
-		t2 = 0
+		TempNotePre = {}
+		GlobalCounter = 0
+		for r in self.NotePre:
+			TempNotePre[GlobalCounter] = r[1]
+			GlobalCounter = GlobalCounter + 1
+		self.NotePre = TempNotePre
 
+		#GlobalCounter = 0
 		for i in xrange(len(self.NotePre)):
-			
-			ch = self.NotePre[i]['x']
-			if (ch > 10 and ch < 50) and self.isln[self.NotePre[i]['n']]:
+			"""
+			Longnote Processor
 
-				t1 = t1 + 1
-			
+			"""
+			ch = self.NotePre[i]['x']
+			if (ch > 10 and ch < 50) and self.isln[TempNotePre[i]['n']]:
 				pln = i
 				while True:	
-
 					pln = pln - 1
-					ch2 = self.NotePre[pln]['x']
+					ch2 = TempNotePre[pln]['x']
 
 					if ch == ch2:
-						self.NotePre.append({ "x" : self.NotePre[pln]['x'], 
-											  "y" : self.NotePre[pln]['y'], 
-											  "n" : self.NotePre[pln]['n'],
-											  "ms" : 0, 
-											  "mm" : 0,
-											  "mc" : 0 })
+						self.NotePre[self.NotePre.keys()[-1] + 1] = { "x" : self.NotePre[pln]['x'], 
+																	  "y" : self.NotePre[pln]['y'], 
+																	  "n" : self.NotePre[pln]['n'],
+																	  "ms" : 0, 
+																	  "mm" : 0,
+																	  "mc" : 0 }
 
 						self.NotePre[pln]['x'] = 0
 						self.NotePre[i]['x'] = 0					
 						break
 
 			if (ch > 50 and ch < 70):
-
-				t2 = t2 + 1
-
 				pln = i
 				while True:
 					pln = pln + 1
-					ch2 = self.NotePre[pln]['x']
-
+					ch2 = TempNotePre[pln]['x']
 					if ch == ch2:
-						self.NotePre.append({ "x" : self.NotePre[pln]['x'] - 40, 
-											  "y" : self.NotePre[pln]['y'], 
-											  "n" : self.NotePre[pln]['n'],
-											  "ms" : 0, 
-											  "mm" : 0,
-											  "mc" : 0 })
+
+						self.NotePre[self.NotePre.keys()[-1] + 1] = { "x" : self.NotePre[i]['x'] - 40, 
+																	  "y" : self.NotePre[i]['y'], 
+																	  "n" : self.NotePre[i]['n'],
+																	  "ms" : 0, 
+																	  "mm" : 0,
+																	  "mc" : 0 }
 
 						self.NotePre[pln]['x'] = 0
 						self.NotePre[i]['x'] = 0
 						break
 
+
+		TempNotePre = {}
+		GlobalCounter = 0
+		for r in self.NotePre:
+			if self.NotePre[r]['x'] != 0:
+				TempNotePre[GlobalCounter] = self.NotePre[r]
+				GlobalCounter = GlobalCounter +1
 		
+		self.NotePre = sorted(TempNotePre.items(), key=lambda x: x[1]['y'])
+
+		for i in range(len(self.NotePre)):
+			self.NotePre[i] = {i : self.NotePre[i][1]}
+
+		"""
 		modified = []
 		for idx, r in enumerate(self.NotePre):
 			if r['x'] != 0:
 				modified.append(self.NotePre[idx])
+
 		self.NotePre = modified
-		
+		"""
+
+
 		self.SetNotes()
 
 	def SetNotes(self):
@@ -317,11 +324,11 @@ class bms2bmson:
 		self.bpmnotes = []
 		self.stopnotes = []
 
-		for i in xrange(len(self.NotePre)):
+		for i, r in enumerate(self.NotePre):
 
-			np = self.NotePre[i]
+			np = r[i]
 
-			if (np['x'] is 4) or (np['x'] is 6) or (np['x'] is 7):
+			if np['x'] in [4, 6, 7]:
 
 				bn = { 'y'  : np['y'],
 					   'id' : np['n'] }
@@ -335,7 +342,7 @@ class bms2bmson:
 				elif np['x'] == 7:
 					self.blnotes.append(bn)
 
-			elif (np['x'] == 1) or (np['x'] / 10 >= 1) or (np['x'] / 10 <= 4):
+			if (np['x'] == 1) or (np['x'] / 10 >= 1) or (np['x'] / 10 <= 4):
 				
 				n = { "channel" : np['x'],
 					  "id"		: np['n'],
@@ -346,7 +353,6 @@ class bms2bmson:
 
 			else:
 				en = { "y" : np['y'] }
-
 				if np['x'] == 3:
 					en['v'] = float(np['n'])
 					self.bpmnotes.append(en)
@@ -359,18 +365,22 @@ class bms2bmson:
 					en['v'] = self.stopnum[np['n']]
 					self.stopnotes.append(en)
 
+		#print json.dumps(self.notes, ensure_ascii=False, sort_keys=True)
+		
 	def Convert(self, file):
 
 		bmsdata = self.LoadBMS(file)
 
 		self.GetMetadata(bmsdata)
 		self.ReadBMSLines(bmsdata)
+		
+		print "[-] defined sound files : {}".format(len(self.wavHeader))
+		print "[-] defined bga/bgi files : {}".format(len(self.bgaHeader))
+		print "[-] total note count : {}".format(len(self.notes))
+
 		self.ExportToJson()
 
-		print "wav defined : {}\nwav notes : {}\nbga defines : {}".format(len(self.wavHeader), len(self.notes), len(self.bgaHeader))
-		print "bb : {} bl : {} bp : {}".format(len(self.bbnotes), len(self.blnotes), len(self.bpnotes))
-
-		print "[all done]"
+		print "[+] done."
 
 
 if __name__ == "__main__":
