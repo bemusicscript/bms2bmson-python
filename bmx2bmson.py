@@ -11,7 +11,6 @@ __author__ = "xert*"
 __version__ = "0.3"
 __bmsonversion__ = "1.0.0"
 
-
 class bms2bmson:
 
 	@staticmethod
@@ -31,7 +30,7 @@ class bms2bmson:
 	def SaveBmson(jsondata):
 
 		try:
-			with open("result.bmson", "wb") as jf:
+			with open(sys.argv[2], "wb") as jf:
 				jf.write(jsondata)
 			return True
 
@@ -39,43 +38,31 @@ class bms2bmson:
 			traceback.print_exc()
 			return False
 
-	def LoadBMS(self, bmsfile):
+	@staticmethod
+	def LoadBMS(bmsfile):
 
 		bmsfilename = bmsfile
-
 		ext_formats = [".bms", ".bme", ".bml", ".pms"]
-		
 		ext = os.path.splitext(os.path.basename(bmsfile))[1]
 		
-		for ptr, format in enumerate(ext_formats):
-			
+		for ptr, format in enumerate(ext_formats):			
 			if ext == format:
-				
-				self.bmstype = ptr
-
 				with open(bmsfile, "rb") as bmsdata:
 					return bmsdata.read()
-		
-		print "[!] is not bms type file"
 		return None
 
 	def ExportToJson(self):
 
 		bmson = {}
 
-		lines = self.lines
-		bpmnotes = self.bpmnotes
-		stopnotes = self.stopnotes
-
 		bmson["version"] 	 = __bmsonversion__
 		bmson["info"] 		 = self.BMSInfo
 		bmson["lines"] 		 = self.lines
 		bmson["bpm_events"]  = self.bpmnotes
 		bmson["stop_events"] = self.stopnotes
-
-		cnotes = {}
 		bmson["sound_channels"] = []
 
+		cnotes = {}
 		wavslen = len(self.wavHeader)
 		for i in xrange(wavslen):
 			cnotes[self.wavHeader[i]["ID"]] = []
@@ -117,9 +104,6 @@ class bms2bmson:
 		self.SaveBmson(bmson)
 
 	def GetMetadata(self, bmsdata):
-		"""
-		return -> self.BMSInfo
-		"""
 
 		self.BMSInfo = { "title" 			: None,
 						 "subtitle" 		: None,
@@ -194,7 +178,7 @@ class bms2bmson:
 		self.lineh	= { i : 960 for i in xrange(1000) }
 		self.isln 	= { i : False for i in xrange(4096) }
 		self.lines = []
-		self.NotePre = {}
+		self.NotePre = []
 		self.linemax = 0
 		GlobalCounter = 0
 
@@ -224,8 +208,7 @@ class bms2bmson:
 
 					if nn is not 0:
 						self.linemax = max([self.linemax, ms + 1])
-						self.NotePre[GlobalCounter] = {"x" : ch, "y" : 0, "n" : nn, "ms" : ms, "mm" : paramlen, "mc" : j}
-						GlobalCounter = GlobalCounter + 1
+						self.NotePre.append({"x" : ch, "y" : 0, "n" : nn, "ms" : ms, "mm" : paramlen, "mc" : j})
 
 		y = 0
 		for i in xrange(self.linemax + 1):
@@ -237,37 +220,27 @@ class bms2bmson:
 			seq_y = (self.lines[ms+1]["y"] - self.lines[ms]["y"]) * self.NotePre[i]["mc"] / self.NotePre[i]["mm"]
 			self.NotePre[i]["y"] = self.lines[ms]["y"] + seq_y
 
-		self.NotePre = sorted(self.NotePre.items(), key=lambda x: x[1]['y'])
-		#self.NotePre = sorted(self.NotePre, key=lambda k: k['y'])
+		self.NotePre = sorted(self.NotePre, key=lambda k: k['y'])
 
-		TempNotePre = {}
-		GlobalCounter = 0
-		for r in self.NotePre:
-			TempNotePre[GlobalCounter] = r[1]
-			GlobalCounter = GlobalCounter + 1
-		self.NotePre = TempNotePre
-
-		#GlobalCounter = 0
 		for i in xrange(len(self.NotePre)):
 			"""
 			Longnote Processor
 
 			"""
 			ch = self.NotePre[i]['x']
-			if (ch > 10 and ch < 50) and self.isln[TempNotePre[i]['n']]:
+
+			if (ch > 10 and ch < 50) and self.isln[self.NotePre[i]['n']]:
 				pln = i
 				while True:	
 					pln = pln - 1
-					ch2 = TempNotePre[pln]['x']
-
+					ch2 = self.NotePre[pln]['x']
 					if ch == ch2:
-						self.NotePre[self.NotePre.keys()[-1] + 1] = { "x" : self.NotePre[pln]['x'], 
-																	  "y" : self.NotePre[pln]['y'], 
-																	  "n" : self.NotePre[pln]['n'],
-																	  "ms" : 0, 
-																	  "mm" : 0,
-																	  "mc" : 0 }
-
+						self.NotePre.append({ "x" : self.NotePre[pln]['x'], 
+											  "y" : self.NotePre[pln]['y'], 
+											  "n" : self.NotePre[pln]['n'],
+											  "ms" : 0, 
+											  "mm" : 0,
+											  "mc" : 0 })
 						self.NotePre[pln]['x'] = 0
 						self.NotePre[i]['x'] = 0					
 						break
@@ -276,42 +249,20 @@ class bms2bmson:
 				pln = i
 				while True:
 					pln = pln + 1
-					ch2 = TempNotePre[pln]['x']
+					ch2 = self.NotePre[pln]['x']
 					if ch == ch2:
-
-						self.NotePre[self.NotePre.keys()[-1] + 1] = { "x" : self.NotePre[i]['x'] - 40, 
-																	  "y" : self.NotePre[i]['y'], 
-																	  "n" : self.NotePre[i]['n'],
-																	  "ms" : 0, 
-																	  "mm" : 0,
-																	  "mc" : 0 }
-
+						self.NotePre.append({ "x" : self.NotePre[i]['x'] - 40, 
+											  "y" : self.NotePre[i]['y'], 
+											  "n" : self.NotePre[i]['n'],
+											  "ms" : 0, 
+											  "mm" : 0,
+											  "mc" : 0 })
 						self.NotePre[pln]['x'] = 0
 						self.NotePre[i]['x'] = 0
 						break
 
-
-		TempNotePre = {}
-		GlobalCounter = 0
-		for r in self.NotePre:
-			if self.NotePre[r]['x'] != 0:
-				TempNotePre[GlobalCounter] = self.NotePre[r]
-				GlobalCounter = GlobalCounter +1
-		
-		self.NotePre = sorted(TempNotePre.items(), key=lambda x: x[1]['y'])
-
-		for i in range(len(self.NotePre)):
-			self.NotePre[i] = {i : self.NotePre[i][1]}
-
-		"""
-		modified = []
-		for idx, r in enumerate(self.NotePre):
-			if r['x'] != 0:
-				modified.append(self.NotePre[idx])
-
-		self.NotePre = modified
-		"""
-
+		TempNotePre = [r for r in self.NotePre if r['x'] != 0]
+		self.NotePre = sorted(TempNotePre, key=lambda k: k['y'])
 
 		self.SetNotes()
 
@@ -324,9 +275,7 @@ class bms2bmson:
 		self.bpmnotes = []
 		self.stopnotes = []
 
-		for i, r in enumerate(self.NotePre):
-
-			np = r[i]
+		for i, np in enumerate(self.NotePre):
 
 			if np['x'] in [4, 6, 7]:
 
@@ -364,8 +313,6 @@ class bms2bmson:
 				elif np['x'] == 9:
 					en['v'] = self.stopnum[np['n']]
 					self.stopnotes.append(en)
-
-		#print json.dumps(self.notes, ensure_ascii=False, sort_keys=True)
 		
 	def Convert(self, file):
 
